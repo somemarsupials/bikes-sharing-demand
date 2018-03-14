@@ -1,0 +1,139 @@
+---
+title: "Bicycles_Notebook"
+output: bicycles_notebook
+---
+```{r}
+library(dplyr)
+library(plyr)
+library(ggplot2)
+library(Rmisc)
+
+#import datasets and combine
+train = read.csv("Car_train.csv", stringsAsFactors = FALSE)
+test = read.csv("Car_test.csv", stringsAsFactors = FALSE)
+full = bind_rows(train, test)
+```
+
+```{r}
+str(full)
+summary(full)
+
+# - - - Task - - -
+
+# You are provided hourly rental data spanning two years. For this competition, the training set is comprised of the first 19 days of each month, while the test set is the 20th to the end of the month. You must predict the total count of bikes rented during each hour covered by the test set, using only information available prior to the rental period.
+
+# - - - 
+
+#on first inspection date needs to be fixed and engineered to more useful vars, vars need converting to factors, doesnt appear to be any missing data...lets dig deeper...
+```
+
+```{r}
+datetime = strptime(train$datetime, format = "%Y-%m-%d %H:%M:%S")
+#create var for which weekday
+train$weekday = weekdays(datetime)
+#code weekdays => saturday = 0 etc. 
+#train$weekday = factor(train$weekday, levels=c("Saturday","Sunday", "Monday","Tuesday", "Wednesday","Thursday", "Friday"), labels=c(0,1,2,3,4,5,6))
+#new var for which numerical date of the month
+train$dayofmonth = as.numeric(format(datetime, format = "%d"))
+# hour var
+train$hour = datetime$hour
+#month var
+train$month = as.numeric(format(datetime, format = "%m"))
+```
+
+```{r} 
+#convert to factor where needed
+cols = c("season", "holiday", "workingday", "weather", "hour", "month", "dayofmonth", "weekday")
+
+train[cols] = lapply(train[cols], factor)
+
+train$season  = factor(train$season, labels = c("Spring", "Summer", "Autumn", "Winter"))
+train$weather = factor(train$weather, labels = c("Good", "Normal", "Bad", "Very Bad"))
+```
+
+```{r}
+#check data again
+str(train)
+```
+
+```{r}
+# count unique values
+sapply(train, function(x) length(unique(x)))
+```
+
+```{r}
+#check how cat. vars are structured
+par(mfrow=c(2,2))
+barplot((prop.table(table(train$season))), main="season_breakdown")
+barplot((prop.table(table(train$holiday))), main="holiday_breakdown")
+barplot((prop.table(table(train$workingday))), main="workingday_breakdown")
+barplot((prop.table(table(train$weather))), main="weather_breakdown")
+
+# seems that not many holiday days and almost no weather cat 4 values
+```
+
+
+
+
+```{r}
+table(train$weather)
+table(train$holiday)
+
+# value of 1 can be removed from weather whereas holiday days are large enough in quantity
+```
+
+```{r}
+#remove value of vbad and replace with bad
+train$weather[train$weather== "Very Bad"] = "Bad"
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+hist(train$atemp, breaks = 300, main="atemp_distribution")
+hist(train$temp, breaks = 300, main="temp_distribution")
+hist(train$windspeed, breaks = 300, main="windspeed_distribution")
+hist(train$humidity, breaks = 300, main="humidity_distribution")
+```
+
+```{r}
+season_summary = ddply(train,.(season,hour),
+                        summarise, count = mean(count))
+gg1 = ggplot(train, aes(x = hour, y = count, colour = season)) +
+  geom_line(data = season_summary, aes(group = season))
+
+weather_summary = ddply(train,.(weather,hour),
+                        summarise, count = mean(count))
+gg2 = ggplot(train, aes(x = hour, y = count, colour = weather)) +
+  geom_line(data = weather_summary, aes(group = weather))
+
+
+
+multiplot(gg1, gg2, cols=1)
+```
+
+```{r}
+# okay so weekdays and weekends show different behaviour
+# count looks to be impacted by weather and season
+# maybe consider dropping weekday for 0,1 - doesnt follow same as holiday
+
+gg3 = ggplot(train, aes(x = hour, y = count, colour = weekday)) +
+  geom_line(data = weekday_summary, aes(group = weekday))
+
+holiday_summary = ddply(train,.(holiday,hour),
+                        summarise, count = mean(count))
+gg4 = ggplot(train, aes(x = hour, y = count, colour = holiday)) +
+  geom_line(data = holiday_summary, aes(group = holiday))
+
+workingday_summary = ddply(train,.(workingday,hour),
+                        summarise, count = mean(count))
+gg5 = ggplot(train, aes(x = hour, y = count, colour = workingday)) +
+  geom_line(data = workingday_summary, aes(group = workingday))
+
+multiplot( gg3,gg4, gg5, cols=1)
+```
+
+```{r}
+
+```
+
