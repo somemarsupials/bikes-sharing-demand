@@ -1,12 +1,18 @@
 ---
 title: "Bicycles_Notebook"
 output: bicycles_notebook
+
+# to do: year var, 
+#normalising only needed for some algos
+
 ---
 ```{r}
 library(dplyr)
 library(plyr)
 library(ggplot2)
 library(Rmisc)
+library(caret)
+library(corrplot) 
 
 #import datasets and combine
 train = read.csv("Car_train.csv", stringsAsFactors = FALSE)
@@ -28,17 +34,31 @@ summary(full)
 ```
 
 ```{r}
+
 datetime = strptime(train$datetime, format = "%Y-%m-%d %H:%M:%S")
+datetime_test = strptime(test$datetime, format = "%Y-%m-%d %H:%M:%S")
+
 #create var for which weekday
 train$weekday = weekdays(datetime)
+test$weekday = weekdays(datetime_test)
 #code weekdays => saturday = 0 etc. 
 #train$weekday = factor(train$weekday, levels=c("Saturday","Sunday", "Monday","Tuesday", "Wednesday","Thursday", "Friday"), labels=c(0,1,2,3,4,5,6))
 #new var for which numerical date of the month
 train$dayofmonth = as.numeric(format(datetime, format = "%d"))
+test$dayofmonth = as.numeric(format(datetime_test, format = "%d"))
+
 # hour var
 train$hour = datetime$hour
+test$hour = datetime_test$hour
+
+#year var
+train$year = datetime$year
+test$year = datetime_test$year
+
 #month var
 train$month = as.numeric(format(datetime, format = "%m"))
+test$month = as.numeric(format(datetime_test, format = "%m"))
+
 ```
 
 ```{r} 
@@ -46,9 +66,14 @@ train$month = as.numeric(format(datetime, format = "%m"))
 cols = c("season", "holiday", "workingday", "weather", "hour", "month", "dayofmonth", "weekday")
 
 train[cols] = lapply(train[cols], factor)
+test[cols] = lapply(test[cols], factor)
+
 
 train$season  = factor(train$season, labels = c("Spring", "Summer", "Autumn", "Winter"))
 train$weather = factor(train$weather, labels = c("Good", "Normal", "Bad", "Very Bad"))
+
+test$season  = factor(test$season, labels = c("Spring", "Summer", "Autumn", "Winter"))
+test$weather = factor(test$weather, labels = c("Good", "Normal", "Bad", "Very Bad"))
 ```
 
 ```{r}
@@ -85,16 +110,29 @@ table(train$holiday)
 ```{r}
 #remove value of vbad and replace with bad
 train$weather[train$weather== "Very Bad"] = "Bad"
+train$weather = factor(train$weather) 
+
+test$weather[test$weather== "Very Bad"] = "Bad"
+test$weather = factor(test$weather) 
 ```
 
 
 ```{r}
 par(mfrow=c(2,2))
-hist(train$atemp, breaks = 300, main="atemp_distribution")
-hist(train$temp, breaks = 300, main="temp_distribution")
-hist(train$windspeed, breaks = 300, main="windspeed_distribution")
-hist(train$humidity, breaks = 300, main="humidity_distribution")
+hist(train$atemp, breaks = 100)
+hist(train$temp, breaks = 100)
+hist(train$windspeed, breaks = 100)
+hist(train$humidity, breaks = 100)
 ```
+
+```{r}
+#check correlations
+
+corrplot((cor(train[,unlist(lapply(train, is.numeric))])), method = "circle") #plot matrix
+
+cor(train[,unlist(lapply(train, is.numeric))])
+```
+
 
 ```{r}
 season_summary = ddply(train,.(season,hour),
@@ -134,6 +172,20 @@ multiplot( gg3,gg4, gg5, cols=1)
 ```
 
 ```{r}
+# now we start thinking about the model
+# do we create a new variable for year 1,2
+
+# not sure if it will work but to use as much data as possible in one model we can combine count and 
+
+#flds <- createFolds(y, k = 10, list = TRUE, returnTrain = FALSE)
+#names(flds)[1] <- "train"
+
+lm1 = lm(casual ~ season + holiday + workingday + weather + temp + atemp + humidity + windspeed + hour + year, data = train)
+
+predlm1 = predict(lm1, newdata = test)
+
+
+
 
 ```
 
